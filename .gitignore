@@ -3,3 +3,4 @@ extracted_data.json
 hashed_data.json
 config.py
 twttr-bot
+__pycache__
