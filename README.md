@@ -1,4 +1,4 @@
-# twttr_bot_python
+# twttr_bot
 Twitter Bot implemented with Python
 
 # Installation
