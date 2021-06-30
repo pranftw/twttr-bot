@@ -11,7 +11,7 @@ create and activate virtual env <br>
 - For Streaming <br>
   `cd src` <br>
   `cp ../config.py.example config.py`<br>
-  Fill in the necessary details in config.py
+  Fill in the necessary details in config.py<br>
   `python -m src.bot` <br>
   ctrl + c to kill the streaming <br>
 
