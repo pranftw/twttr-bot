@@ -1,0 +1,13 @@
+API_KEY = ""
+
+API_KEY_SECRET = ""
+
+BEARER = ""
+
+ACCESS_TOKEN = ""
+
+ACCESS_TOKEN_SECRET = ""
+
+BOT_ID = ""
+
+BOT_HANDLE = ""

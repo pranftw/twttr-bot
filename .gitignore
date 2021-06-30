@@ -1,0 +1,5 @@
+.DS_Store
+extracted_data.json
+hashed_data.json
+config.py
+twttr-bot
