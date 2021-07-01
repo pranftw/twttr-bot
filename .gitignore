@@ -4,3 +4,5 @@ hashed_data.json
 config.py
 twttr-bot
 __pycache__
+scraper.log
+bot.log
