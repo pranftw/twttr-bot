@@ -162,14 +162,15 @@ def split_text(text,handle_str=None,limit=280):
     split_text_list = []
     words = text.split(" ")
     new_str = ""
-    for (i,word) in enumerate(words):
-        if(len(new_str+word+" ")<limit):
-            new_str += (word + " ")
-            if(i==len(words)-1):
-                split_text_list.append(new_str)
+    i = 0
+    while(i<len(words)):
+        if(len(new_str+words[i]+" ")<limit):
+            new_str += (words[i] + " ")
+            i+=1
         else:
             split_text_list.append(new_str)
             new_str = ""
+    split_text_list.append(new_str)
     return split_text_list
 
 
