@@ -53,6 +53,11 @@ class Bot:
         if(p.status_code!=200):
             logger.error(f"Retweet {p.json()}")
 
+    def like(self, twt_id):
+        p = self.auth.post(f"https://api.twitter.com/1.1/favorites/create.json?id={twt_id}")
+        if(p.status_code!=200):
+            logger.error(f"Like {p.json()}")
+
     def dm(self, receiver_id, message):
         p = self.auth.post("https://api.twitter.com/1.1/direct_messages/events/new.json",data=json.dumps({"event":{"type":"message_create","message_create":{"target":{"recipient_id":"{}".format(receiver_id)},"message_data":{"text":"{}".format(message)}}}}))
         if(p.status_code!=200):
@@ -90,6 +95,20 @@ class Bot:
             except Exception as e:
                 logger.exception(f"STREAMING {e}")
                 raise
+
+    def user_timeline(self, username=BOT_HANDLE, exclude_replies=True, include_retweets=False):
+        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name={username}&exclude_replies={exclude_replies}&include_rts={include_retweets}", headers=self.headers)
+        if(r.status_code!=200):
+            logger.error(f"USER_TIMELINE {r.json()}")
+        else:
+            return r.json()
+
+    def mentions_timeline(self, user_id=BOT_ID):
+        r = requests.get(f"https://api.twitter.com/2/users/{BOT_ID}/mentions", headers=self.headers)
+        if(r.status_code!=200):
+            logger.error(f"MENTIONS_TIMELINE {r.json()}")
+        else:
+            return r.json()
 
     def get_location_data(self,place_id):
         r = requests.get(f"https://api.twitter.com/1.1/geo/id/:{place_id}.json",headers=self.headers)
