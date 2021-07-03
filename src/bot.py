@@ -26,13 +26,13 @@ class Bot:
         messages = split_text(text,f"@{BOT_HANDLE} ")
         p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':messages[0]})
         if(p.status_code!=200):
-            logger.error(f"Tweet {p.json()}")
+            logger.error(f"TWEET {p.json()}")
             return
         twt_id, twt_author = self.get_tweet_details(p.json())
         for message in messages[1:]:
             p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
             if(p.status_code!=200):
-                logger.error(f"Tweet {p.json()}")
+                logger.error(f"TWEET {p.json()}")
                 return
             twt_id, twt_author = self.get_tweet_details(p.json())
 
@@ -44,19 +44,19 @@ class Bot:
         for message in messages:
             p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
             if(p.status_code!=200):
-                logger.error(f"Reply {p.json()}")
+                logger.error(f"REPLY {p.json()}")
                 return
             twt_id, twt_author = self.get_tweet_details(p.json())
 
     def retweet(self, twt_id):
         p = self.auth.post("https://api.twitter.com/1.1/statuses/retweet/{}.json".format(twt_id))
         if(p.status_code!=200):
-            logger.error(f"Retweet {p.json()}")
+            logger.error(f"RETWEET {p.json()}")
 
     def like(self, twt_id):
         p = self.auth.post(f"https://api.twitter.com/1.1/favorites/create.json?id={twt_id}")
         if(p.status_code!=200):
-            logger.error(f"Like {p.json()}")
+            logger.error(f"LIKE {p.json()}")
 
     def dm(self, receiver_id, message):
         p = self.auth.post("https://api.twitter.com/1.1/direct_messages/events/new.json",data=json.dumps({"event":{"type":"message_create","message_create":{"target":{"recipient_id":"{}".format(receiver_id)},"message_data":{"text":"{}".format(message)}}}}))
@@ -71,7 +71,7 @@ class Bot:
             tweet_fields = "conversation_id,created_at,geo,referenced_tweets"
         s = requests.get("https://api.twitter.com/2/tweets/search/recent?query={}&max_results=100&expansions={}&tweet.fields={}&user.fields=location,description,username".format(queries,expansions,tweet_fields),headers=self.headers)
         if(s.status_code!=200):
-            logger.error(f"Search {s.json()}")
+            logger.error(f"SEARCH {s.json()}")
             return None
         else:
             return s.json()
@@ -96,8 +96,8 @@ class Bot:
                 logger.exception(f"STREAMING {e}")
                 raise
 
-    def user_timeline(self, username=BOT_HANDLE, exclude_replies=True, include_retweets=False):
-        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name={username}&exclude_replies={exclude_replies}&include_rts={include_retweets}", headers=self.headers)
+    def user_timeline(self, username=BOT_HANDLE, exclude_replies=True, include_retweets=False,count=200):
+        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name={username}&exclude_replies={exclude_replies}&include_rts={include_retweets}&count={count}", headers=self.headers)
         if(r.status_code!=200):
             logger.error(f"USER_TIMELINE {r.json()}")
         else:
@@ -110,10 +110,32 @@ class Bot:
         else:
             return r.json()
 
+    def get_likes(self, username=BOT_HANDLE, count=200):
+        r = requests.get(f"https://api.twitter.com/1.1/favorites/list.json", data={"count":count,"screen_name":BOT_HANDLE}, headers=self.headers)
+        if(r.status_code!=200):
+            logger.error(f"GET_LIKES {r.json()}")
+        else:
+            return r.json()
+
+    def delete_tweet(self, twt_id):
+        p = self.auth.post(f"https://api.twitter.com/1.1/statuses/destroy/{twt_id}.json")
+        if(p.status_code!=200):
+            logger.error(f"DELETE_TWEET {p.json()}")
+
+    def delete_retweet(self, twt_id):
+        p = self.auth.post(f"https://api.twitter.com/1.1/statuses/unretweet/{twt_id}.json")
+        if(p.status_code!=200):
+            logger.error(f"DELETE_RETWEET {p.json()}")
+
+    def delete_like(self, twt_id):
+        p = self.auth.post(f"https://api.twitter.com/1.1/favorites/destroy.json?id={twt_id}")
+        if(p.status_code!=200):
+            logger.error(f"DELETE_LIKE {p.json()}")
+
     def get_location_data(self,place_id):
         r = requests.get(f"https://api.twitter.com/1.1/geo/id/:{place_id}.json",headers=self.headers)
         if(r.status_code!=200):
-            logger.error(f"GetLocation {r.json()}")
+            logger.error(f"GET_LOCATION {r.json()}")
             return None
         else:
             r_json = r.json()
