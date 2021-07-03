@@ -1,9 +1,11 @@
+import os
 import requests
 from requests_oauthlib import OAuth1Session
 import json
 import urllib
-from src.config import API_KEY, API_KEY_SECRET, BEARER,ACCESS_TOKEN, ACCESS_TOKEN_SECRET, BOT_ID, BOT_HANDLE
 import logging
+import base64 as b64
+from src.config import API_KEY, API_KEY_SECRET, BEARER,ACCESS_TOKEN, ACCESS_TOKEN_SECRET, BOT_ID, BOT_HANDLE
 from requests.exceptions import ChunkedEncodingError
 
 
@@ -96,8 +98,61 @@ class Bot:
                 logger.exception(f"STREAMING {e}")
                 raise
 
+    def upload_media(self, media_path):
+        if(os.path.isfile(media_path)):
+            image_extensions = ['gif', 'jpg', 'jpeg', 'png']
+            video_extensions = ['mp4']
+            media_size = os.path.getsize(media_path)
+            media_extension = ((((media_path.split("/"))[-1]).split("."))[-1])
+            if(media_extension in image_extensions):
+                media_type = "image/" + media_extension
+            elif(media_extension in video_extensions):
+                media_type = "video/" + media_extension
+            else:
+                logger.error(f"UPLOAD_MEDIA file extension not supported!")
+                return
+            headers = {"content-type":"multipart/form-data"}
+
+            # INIT request
+            init_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"INIT","total_bytes":media_size,"media_type":media_type})
+            if(init_request.status_code!=202):
+                logger.error(f"UPLOAD_MEDIA init_request {init_request.json()}")
+                return
+            media_id = init_request.json()['media_id']
+
+            # APPEND request
+            media_fp = open(media_path)
+            media_string = media_fp.read()
+            media_fp.close()
+            len_string_in_chunk = len(media_string)/1000
+            media_string_split = []
+            i = 0
+            while(i<len(media_string)):
+                media_string_split.append(media_string[i:i+len_string_in_chunk])
+                i+=len_string_in_chunk
+
+            for (k,split_string) in enumerate(media_string_split):
+                media_bin = ""
+                for j in range(0,len(split_string)):
+                    media_bin += bin(ord(split_string[j])).replace("0b","").zfill(8)
+                media_data = b64.b64encode(split_string.encode('ascii')).decode("ascii")
+                append_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"APPEND","media_id":media_id,"media":media_bin,"media_data":media_data,"segment_index":k})
+                if(append_request.status_code not in range(200,300)):
+                    logger.error(f"UPLOAD_MEDIA append_request segment={k} {append_request.json()}")
+                    return
+
+            # FINALIZE request
+            finalize_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"FINALIZE","media_id":media_id},headers=headers)
+            if(finalize_request.status_code!=200):
+                logger.error(f"UPLOAD_MEDIA finalize_request {finalize_request.json()}")
+                return
+            return media_id
+        else:
+            logger.error(f"UPLOAD_MEDIA media_path specified is a directory!")
+            return
+
     def user_timeline(self, username=BOT_HANDLE, exclude_replies=True, include_retweets=False,count=200):
-        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name={username}&exclude_replies={exclude_replies}&include_rts={include_retweets}&count={count}", headers=self.headers)
+        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name={username}&exclude_replies={exclude_replies}&include_rts={include_retweets}&count={count}")
         if(r.status_code!=200):
             logger.error(f"USER_TIMELINE {r.json()}")
         else:
