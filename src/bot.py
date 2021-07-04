@@ -23,31 +23,60 @@ class Bot:
         self.headers = {'Authorization':'Bearer {}'.format(BEARER)}
         self.add_rules()
 
-    def tweet(self,text):
+    def tweet(self, text, medias=None):
         messages = split_text(text,f"@{BOT_HANDLE} ")
-        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':messages[0]})
-        if(p.status_code!=200):
-            logger.error(f"TWEET {p.json()}")
-            return
-        twt_id, twt_author = self.get_tweet_details(p.json())
-        for message in messages[1:]:
-            p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
+        media_list = self.get_media_list("TWEET",messages,medias)
+        if(media_list):
+            if(media_list[0]):
+                p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':messages[0],'media_ids':(",").join(media_list[0])})
+            else:
+                p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':messages[0]})
             if(p.status_code!=200):
                 logger.error(f"TWEET {p.json()}")
                 return
             twt_id, twt_author = self.get_tweet_details(p.json())
+            k = 1
+            for message in messages[1:]:
+                if(k<len(media_list)):
+                    if(media_list[k]):
+                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id,'media_ids':(",").join(media_list[k])})
+                    else:
+                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
+                    k+=1
+                else:
+                    p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
+                if(p.status_code!=200):
+                    logger.error(f"TWEET {p.json()}")
+                    return
+                twt_id, twt_author = self.get_tweet_details(p.json())
+        else:
+            logger.error(f"TWEET get_media_list returned None")
+            return
 
-    def reply(self, text, tweet_id, tweet_author):
+    def reply(self, text, tweet_id, tweet_author, medias=None):
         twt_id = tweet_id
         twt_author = tweet_author
         handle_str = f"@{twt_author} "
         messages = split_text(text,handle_str)
-        for message in messages:
-            p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
-            if(p.status_code!=200):
-                logger.error(f"REPLY {p.json()}")
-                return
-            twt_id, twt_author = self.get_tweet_details(p.json())
+        media_list = self.get_media_list("REPLY",messages,medias)
+        if(media_list):
+            k = 0
+            for message in messages:
+                if(k<len(media_list)):
+                    if(media_list[k]):
+                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id,'media_ids':(",").join(media_list[k])})
+                    else:
+                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
+                    k+=1
+                else:
+                    p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
+                if(p.status_code!=200):
+                    logger.error(f"REPLY {p.json()}")
+                    return
+                twt_id, twt_author = self.get_tweet_details(p.json())
+        else:
+            logger.error(f"TWEET get_media_list returned None")
+            return
 
     def retweet(self, twt_id):
         p = self.auth.post("https://api.twitter.com/1.1/statuses/retweet/{}.json".format(twt_id))
@@ -134,11 +163,10 @@ class Bot:
 
             # FINALIZE request
             finalize_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"FINALIZE","media_id":media_id})
-            print(finalize_request.status_code)
             if(finalize_request.status_code!=201):
                 logger.error(f"UPLOAD_MEDIA finalize_request {finalize_request.json()}")
                 return
-            return media_id
+            return finalize_request.json()['media_id_string']
         else:
             logger.error(f"UPLOAD_MEDIA media_path specified is a directory!")
             return
@@ -178,6 +206,31 @@ class Bot:
         p = self.auth.post(f"https://api.twitter.com/1.1/favorites/destroy.json?id={twt_id}")
         if(p.status_code!=200):
             logger.error(f"DELETE_LIKE {p.json()}")
+
+    def get_media_list(self, type, messages, medias):
+        if(medias):
+            if(len(medias)>len(messages)):
+                logger.error(f"{type}_WITH_MEDIA Length of medias > length of messages")
+                print("Length of medias > length of messages")
+                return
+            else:
+                media_list = []
+                for media in medias:
+                    if(media is None):
+                        media_list.append(None)
+                    else:
+                        media_ids = []
+                        for media_path in media:
+                            media_id = self.upload_media(media_path)
+                            if(media_id):
+                                media_ids.append(media_id)
+                            else:
+                                logger.error(f"{type}_WITH_MEDIA error uploading. upload_media returned None")
+                                return
+                        media_list.append(media_ids)
+        else:
+            media_list = list(None for _ in range(len(messages)))
+        return media_list
 
     def get_location_data(self,place_id):
         r = requests.get(f"https://api.twitter.com/1.1/geo/id/:{place_id}.json",headers=self.headers)
