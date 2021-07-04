@@ -4,7 +4,6 @@ from requests_oauthlib import OAuth1Session
 import json
 import urllib
 import logging
-import base64 as b64
 from src.config import API_KEY, API_KEY_SECRET, BEARER,ACCESS_TOKEN, ACCESS_TOKEN_SECRET, BOT_ID, BOT_HANDLE
 from requests.exceptions import ChunkedEncodingError
 
@@ -111,7 +110,6 @@ class Bot:
             else:
                 logger.error(f"UPLOAD_MEDIA file extension not supported!")
                 return
-            headers = {"content-type":"multipart/form-data"}
 
             # INIT request
             init_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"INIT","total_bytes":media_size,"media_type":media_type})
@@ -121,29 +119,23 @@ class Bot:
             media_id = init_request.json()['media_id']
 
             # APPEND request
-            media_fp = open(media_path)
-            media_string = media_fp.read()
-            media_fp.close()
-            len_string_in_chunk = len(media_string)/1000
-            media_string_split = []
-            i = 0
-            while(i<len(media_string)):
-                media_string_split.append(media_string[i:i+len_string_in_chunk])
-                i+=len_string_in_chunk
-
-            for (k,split_string) in enumerate(media_string_split):
-                media_bin = ""
-                for j in range(0,len(split_string)):
-                    media_bin += bin(ord(split_string[j])).replace("0b","").zfill(8)
-                media_data = b64.b64encode(split_string.encode('ascii')).decode("ascii")
-                append_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"APPEND","media_id":media_id,"media":media_bin,"media_data":media_data,"segment_index":k})
-                if(append_request.status_code not in range(200,300)):
-                    logger.error(f"UPLOAD_MEDIA append_request segment={k} {append_request.json()}")
-                    return
+            with open(media_path,'rb') as media_fp:
+                segment_index = 0
+                bytes_uploaded = 0
+                while(bytes_uploaded<media_size):
+                    media_chunk = media_fp.read(4*1024*1024)
+                    append_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"APPEND","media_id":media_id,"segment_index":segment_index},files={'media':media_chunk})
+                    if(append_request.status_code not in range(200,300)):
+                        logger.error(f"UPLOAD_MEDIA append_request segment={k} {append_request.json()}")
+                        return
+                    segment_index+=1
+                    bytes_uploaded = media_fp.tell()
+                media_fp.close()
 
             # FINALIZE request
-            finalize_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"FINALIZE","media_id":media_id},headers=headers)
-            if(finalize_request.status_code!=200):
+            finalize_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"FINALIZE","media_id":media_id})
+            print(finalize_request.status_code)
+            if(finalize_request.status_code!=201):
                 logger.error(f"UPLOAD_MEDIA finalize_request {finalize_request.json()}")
                 return
             return media_id
