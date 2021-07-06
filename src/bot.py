@@ -4,6 +4,7 @@ from requests_oauthlib import OAuth1Session
 import json
 import urllib
 import logging
+from src.endpoints import CREATE_TWEET, CREATE_RETWEET, CREATE_LIKE, CREATE_DM, FILTERED_SEARCH, FILTERED_STREAM, MEDIA_UPLOAD, USER_TIMELINE, MENTIONS_TIMELINE, GET_LIKES, DELETE_TWEET, DELETE_RETWEET, DELETE_LIKE, GET_LOCATION, RULES
 from src.config import API_KEY, API_KEY_SECRET, BEARER,ACCESS_TOKEN, ACCESS_TOKEN_SECRET, BOT_ID, BOT_HANDLE
 from requests.exceptions import ChunkedEncodingError
 
@@ -28,9 +29,9 @@ class Bot:
         media_list = self.get_media_list("TWEET",messages,medias)
         if(media_list):
             if(media_list[0]):
-                p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':messages[0],'media_ids':(",").join(media_list[0])})
+                p = self.auth.post(CREATE_TWEET, data={'status':messages[0],'media_ids':(",").join(media_list[0])})
             else:
-                p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':messages[0]})
+                p = self.auth.post(CREATE_TWEET, data={'status':messages[0]})
             if(p.status_code!=200):
                 logger.error(f"TWEET {p.json()}")
                 return
@@ -39,12 +40,12 @@ class Bot:
             for message in messages[1:]:
                 if(k<len(media_list)):
                     if(media_list[k]):
-                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id,'media_ids':(",").join(media_list[k])})
+                        p = self.auth.post(CREATE_TWEET, data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id,'media_ids':(",").join(media_list[k])})
                     else:
-                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
+                        p = self.auth.post(CREATE_TWEET, data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
                     k+=1
                 else:
-                    p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
+                    p = self.auth.post(CREATE_TWEET, data={'status':f"@{twt_author} "+message,'in_reply_to_status_id':twt_id})
                 if(p.status_code!=200):
                     logger.error(f"TWEET {p.json()}")
                     return
@@ -64,12 +65,12 @@ class Bot:
             for message in messages:
                 if(k<len(media_list)):
                     if(media_list[k]):
-                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id,'media_ids':(",").join(media_list[k])})
+                        p = self.auth.post(CREATE_TWEET, data={'status':handle_str+message,'in_reply_to_status_id':twt_id,'media_ids':(",").join(media_list[k])})
                     else:
-                        p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
+                        p = self.auth.post(CREATE_TWEET, data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
                     k+=1
                 else:
-                    p = self.auth.post("https://api.twitter.com/1.1/statuses/update.json",data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
+                    p = self.auth.post(CREATE_TWEET, data={'status':handle_str+message,'in_reply_to_status_id':twt_id})
                 if(p.status_code!=200):
                     logger.error(f"REPLY {p.json()}")
                     return
@@ -79,17 +80,17 @@ class Bot:
             return
 
     def retweet(self, twt_id):
-        p = self.auth.post("https://api.twitter.com/1.1/statuses/retweet/{}.json".format(twt_id))
+        p = self.auth.post(CREATE_RETWEET.format(twt_id))
         if(p.status_code!=200):
             logger.error(f"RETWEET {p.json()}")
 
     def like(self, twt_id):
-        p = self.auth.post(f"https://api.twitter.com/1.1/favorites/create.json", data={"id":twt_id})
+        p = self.auth.post(CREATE_LIKE, data={"id":twt_id})
         if(p.status_code!=200):
             logger.error(f"LIKE {p.json()}")
 
     def dm(self, receiver_id, message):
-        p = self.auth.post("https://api.twitter.com/1.1/direct_messages/events/new.json",data=json.dumps({"event":{"type":"message_create","message_create":{"target":{"recipient_id":"{}".format(receiver_id)},"message_data":{"text":"{}".format(message)}}}}))
+        p = self.auth.post(CREATE_DM, data=json.dumps({"event":{"type":"message_create","message_create":{"target":{"recipient_id":"{}".format(receiver_id)},"message_data":{"text":"{}".format(message)}}}}))
         if(p.status_code!=200):
             logger.error(f"DM {p.json()}")
 
@@ -99,7 +100,7 @@ class Bot:
             expansions = "author_id,geo.place_id,referenced_tweets.id"
         if(not(tweet_fields)):
             tweet_fields = "conversation_id,created_at,geo,referenced_tweets"
-        s = requests.get("https://api.twitter.com/2/tweets/search/recent",data={"query":queries,"max_results":100,"expansions":expansions,"tweet.fields":tweet_fields,"user.fields":"location,description,username"},headers=self.headers)
+        s = requests.get(FILTERED_SEARCH, data={"query":queries,"max_results":100,"expansions":expansions,"tweet.fields":tweet_fields,"user.fields":"location,description,username"},headers=self.headers)
         if(s.status_code!=200):
             logger.error(f"SEARCH {s.json()}")
             return None
@@ -112,7 +113,7 @@ class Bot:
         while True:
             try:
                 if(type=="search"):
-                    response = requests.get("https://api.twitter.com/2/tweets/search/stream", data={"expansions":"author_id"}, headers=self.headers, stream=True)
+                    response = requests.get(FILTERED_STREAM, data={"expansions":"author_id"}, headers=self.headers, stream=True)
                     if(response.status_code!=200):
                         logger.error(f"SearchStream {response.json()}")
                         break
@@ -141,7 +142,7 @@ class Bot:
                 return
 
             # INIT request
-            init_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"INIT","total_bytes":media_size,"media_type":media_type})
+            init_request = self.auth.post(UPLOAD_MEDIA, data={"command":"INIT","total_bytes":media_size,"media_type":media_type})
             if(init_request.status_code!=202):
                 logger.error(f"UPLOAD_MEDIA init_request {init_request.json()}")
                 return
@@ -153,7 +154,7 @@ class Bot:
                 bytes_uploaded = 0
                 while(bytes_uploaded<media_size):
                     media_chunk = media_fp.read(4*1024*1024)
-                    append_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"APPEND","media_id":media_id,"segment_index":segment_index},files={'media':media_chunk})
+                    append_request = self.auth.post(UPLOAD_MEDIA, data={"command":"APPEND","media_id":media_id,"segment_index":segment_index},files={'media':media_chunk})
                     if(append_request.status_code not in range(200,300)):
                         logger.error(f"UPLOAD_MEDIA append_request segment={k} {append_request.json()}")
                         return
@@ -162,7 +163,7 @@ class Bot:
                 media_fp.close()
 
             # FINALIZE request
-            finalize_request = self.auth.post("https://upload.twitter.com/1.1/media/upload.json",data={"command":"FINALIZE","media_id":media_id})
+            finalize_request = self.auth.post(UPLOAD_MEDIA, data={"command":"FINALIZE","media_id":media_id})
             if(finalize_request.status_code!=201):
                 logger.error(f"UPLOAD_MEDIA finalize_request {finalize_request.json()}")
                 return
@@ -172,38 +173,38 @@ class Bot:
             return
 
     def user_timeline(self, username=BOT_HANDLE, exclude_replies=True, include_retweets=False,count=200):
-        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json",data={"screen_name":username,"exclude_replies":exclude_replies,"include_rts":include_retweets,"count":count})
+        r = requests.get(USER_TIMELINE, data={"screen_name":username,"exclude_replies":exclude_replies,"include_rts":include_retweets,"count":count})
         if(r.status_code!=200):
             logger.error(f"USER_TIMELINE {r.json()}")
         else:
             return r.json()
 
     def mentions_timeline(self, user_id=BOT_ID):
-        r = requests.get("https://api.twitter.com/2/users/{}/mentions".format(BOT_ID), headers=self.headers)
+        r = requests.get(MENTIONS_TIMELINE.format(BOT_ID), headers=self.headers)
         if(r.status_code!=200):
             logger.error(f"MENTIONS_TIMELINE {r.json()}")
         else:
             return r.json()
 
     def get_likes(self, username=BOT_HANDLE, count=200):
-        r = requests.get(f"https://api.twitter.com/1.1/favorites/list.json", data={"count":count,"screen_name":BOT_HANDLE}, headers=self.headers)
+        r = requests.get(GET_LIKES, data={"count":count,"screen_name":BOT_HANDLE}, headers=self.headers)
         if(r.status_code!=200):
             logger.error(f"GET_LIKES {r.json()}")
         else:
             return r.json()
 
     def delete_tweet(self, twt_id):
-        p = self.auth.post("https://api.twitter.com/1.1/statuses/destroy/{}.json".format(twt_id))
+        p = self.auth.post(DELETE_TWEET.format(twt_id))
         if(p.status_code!=200):
             logger.error(f"DELETE_TWEET {p.json()}")
 
     def delete_retweet(self, twt_id):
-        p = self.auth.post("https://api.twitter.com/1.1/statuses/unretweet/{}.json".format(twt_id))
+        p = self.auth.post(DELETE_RETWEET.format(twt_id))
         if(p.status_code!=200):
             logger.error(f"DELETE_RETWEET {p.json()}")
 
     def delete_like(self, twt_id):
-        p = self.auth.post("https://api.twitter.com/1.1/favorites/destroy.json",data={"id":twt_id})
+        p = self.auth.post(DELETE_LIKE, data={"id":twt_id})
         if(p.status_code!=200):
             logger.error(f"DELETE_LIKE {p.json()}")
 
@@ -233,7 +234,7 @@ class Bot:
         return media_list
 
     def get_location_data(self,place_id):
-        r = requests.get("https://api.twitter.com/1.1/geo/id/:{}.json".format(place_id),headers=self.headers)
+        r = requests.get(GET_LOCATION.format(place_id), headers=self.headers)
         if(r.status_code!=200):
             logger.error(f"GET_LOCATION {r.json()}")
             return None
@@ -258,19 +259,19 @@ class Bot:
     def add_rules(self):
         rules = [{'value':"{} (-is:retweet)".format(BOT_HANDLE)}]
         payload = {"add":rules}
-        r = requests.post("https://api.twitter.com/2/tweets/search/stream/rules",headers=self.headers,json=payload)
+        r = requests.post(RULES, headers=self.headers,json=payload)
         if(r.status_code!=200):
             r_str = json.dumps(r.json())
             if('DuplicateRule' not in r_str):
                 logger.error(f"AddRules {r.json()}")
 
     def delete_all_rules(self):
-        r = requests.get("https://api.twitter.com/2/tweets/search/stream/rules",headers=self.headers)
+        r = requests.get(RULES, headers=self.headers)
         rules = r.json()
         if(rules.get('data',None)):
             ids = list(map(lambda rule: rule["id"], rules["data"]))
             payload = {"delete": {"ids": ids}}
-            r = requests.post("https://api.twitter.com/2/tweets/search/stream/rules",headers=self.headers,json=payload)
+            r = requests.post(RULES, headers=self.headers,json=payload)
             if(r.status_code!=200):
                 logger.error(f"DeleteRules {r.json()}")
 
