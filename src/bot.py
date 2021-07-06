@@ -84,7 +84,7 @@ class Bot:
             logger.error(f"RETWEET {p.json()}")
 
     def like(self, twt_id):
-        p = self.auth.post(f"https://api.twitter.com/1.1/favorites/create.json?id={twt_id}")
+        p = self.auth.post(f"https://api.twitter.com/1.1/favorites/create.json", data={"id":twt_id})
         if(p.status_code!=200):
             logger.error(f"LIKE {p.json()}")
 
@@ -99,7 +99,7 @@ class Bot:
             expansions = "author_id,geo.place_id,referenced_tweets.id"
         if(not(tweet_fields)):
             tweet_fields = "conversation_id,created_at,geo,referenced_tweets"
-        s = requests.get("https://api.twitter.com/2/tweets/search/recent?query={}&max_results=100&expansions={}&tweet.fields={}&user.fields=location,description,username".format(queries,expansions,tweet_fields),headers=self.headers)
+        s = requests.get("https://api.twitter.com/2/tweets/search/recent",data={"query":queries,"max_results":100,"expansions":expansions,"tweet.fields":tweet_fields,"user.fields":"location,description,username"},headers=self.headers)
         if(s.status_code!=200):
             logger.error(f"SEARCH {s.json()}")
             return None
@@ -112,7 +112,7 @@ class Bot:
         while True:
             try:
                 if(type=="search"):
-                    response = requests.get("https://api.twitter.com/2/tweets/search/stream?expansions=author_id", headers=self.headers, stream=True)
+                    response = requests.get("https://api.twitter.com/2/tweets/search/stream", data={"expansions":"author_id"}, headers=self.headers, stream=True)
                     if(response.status_code!=200):
                         logger.error(f"SearchStream {response.json()}")
                         break
@@ -172,14 +172,14 @@ class Bot:
             return
 
     def user_timeline(self, username=BOT_HANDLE, exclude_replies=True, include_retweets=False,count=200):
-        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name={username}&exclude_replies={exclude_replies}&include_rts={include_retweets}&count={count}")
+        r = requests.get(f"https://api.twitter.com/1.1/statuses/user_timeline.json",data={"screen_name":username,"exclude_replies":exclude_replies,"include_rts":include_retweets,"count":count})
         if(r.status_code!=200):
             logger.error(f"USER_TIMELINE {r.json()}")
         else:
             return r.json()
 
     def mentions_timeline(self, user_id=BOT_ID):
-        r = requests.get(f"https://api.twitter.com/2/users/{BOT_ID}/mentions", headers=self.headers)
+        r = requests.get("https://api.twitter.com/2/users/{}/mentions".format(BOT_ID), headers=self.headers)
         if(r.status_code!=200):
             logger.error(f"MENTIONS_TIMELINE {r.json()}")
         else:
@@ -193,17 +193,17 @@ class Bot:
             return r.json()
 
     def delete_tweet(self, twt_id):
-        p = self.auth.post(f"https://api.twitter.com/1.1/statuses/destroy/{twt_id}.json")
+        p = self.auth.post("https://api.twitter.com/1.1/statuses/destroy/{}.json".format(twt_id))
         if(p.status_code!=200):
             logger.error(f"DELETE_TWEET {p.json()}")
 
     def delete_retweet(self, twt_id):
-        p = self.auth.post(f"https://api.twitter.com/1.1/statuses/unretweet/{twt_id}.json")
+        p = self.auth.post("https://api.twitter.com/1.1/statuses/unretweet/{}.json".format(twt_id))
         if(p.status_code!=200):
             logger.error(f"DELETE_RETWEET {p.json()}")
 
     def delete_like(self, twt_id):
-        p = self.auth.post(f"https://api.twitter.com/1.1/favorites/destroy.json?id={twt_id}")
+        p = self.auth.post("https://api.twitter.com/1.1/favorites/destroy.json",data={"id":twt_id})
         if(p.status_code!=200):
             logger.error(f"DELETE_LIKE {p.json()}")
 
@@ -233,7 +233,7 @@ class Bot:
         return media_list
 
     def get_location_data(self,place_id):
-        r = requests.get(f"https://api.twitter.com/1.1/geo/id/:{place_id}.json",headers=self.headers)
+        r = requests.get("https://api.twitter.com/1.1/geo/id/:{}.json".format(place_id),headers=self.headers)
         if(r.status_code!=200):
             logger.error(f"GET_LOCATION {r.json()}")
             return None
