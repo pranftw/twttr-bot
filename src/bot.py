@@ -71,7 +71,7 @@ class Bot:
             logger.error(f"TWEET get_media_list returned None")
             return
 
-    def reply(self, tweet_id, tweet_author, text=None, text_split=None, medias=None):
+    def reply(self, tweet_id, tweet_author=BOT_HANDLE.replace("@",""), text=None, text_split=None, medias=None):
         twt_id = tweet_id
         twt_author = tweet_author
         handle_str = f"@{twt_author} "
