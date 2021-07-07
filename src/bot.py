@@ -5,7 +5,7 @@ import json
 import urllib
 import logging
 from src.endpoints import CREATE_TWEET, CREATE_RETWEET, CREATE_LIKE, CREATE_DM, FILTERED_SEARCH, FILTERED_STREAM, MEDIA_UPLOAD, USER_TIMELINE, MENTIONS_TIMELINE, GET_LIKES, DELETE_TWEET, DELETE_RETWEET, DELETE_LIKE, GET_LOCATION, RULES
-from src.config import API_KEY, API_KEY_SECRET, BEARER,ACCESS_TOKEN, ACCESS_TOKEN_SECRET, BOT_ID, BOT_HANDLE
+from src.config import API_KEY, API_KEY_SECRET, BEARER,ACCESS_TOKEN, ACCESS_TOKEN_SECRET, BOT_ID, BOT_HANDLE, TWEET_LENGTH
 from requests.exceptions import ChunkedEncodingError
 
 
@@ -24,8 +24,25 @@ class Bot:
         self.headers = {'Authorization':'Bearer {}'.format(BEARER)}
         self.add_rules()
 
-    def tweet(self, text, medias=None):
-        messages = split_text(text,f"@{BOT_HANDLE} ")
+    def tweet(self, text=None, text_split=None, medias=None):
+        if(text and not(text_split)):
+            messages = split_text(text,f"@{BOT_HANDLE} ")
+        elif(text_split and not(text)):
+            check_split = check_split_text(text_split)
+            if(not(check_split)):
+                logger.error("TWEET text_split has an entity exceeding the TWEET_LENGTH")
+                print("Ensure that all the individual tweets don't exceed the TWEET_LENGTH")
+                return
+            else:
+                messages = text_split
+        elif(text and text_split):
+            logger.error("TWEET Both text and text_split specified")
+            print("Specify either one of text or text_split")
+            return
+        else:
+            logger.error("TWEET Both text and text_split aren't specified")
+            print("Specify either one of text or text_split")
+            return
         media_list = self.get_media_list("TWEET",messages,medias)
         if(media_list):
             if(media_list[0]):
@@ -54,11 +71,28 @@ class Bot:
             logger.error(f"TWEET get_media_list returned None")
             return
 
-    def reply(self, text, tweet_id, tweet_author, medias=None):
+    def reply(self, tweet_id, tweet_author, text=None, text_split=None, medias=None):
         twt_id = tweet_id
         twt_author = tweet_author
         handle_str = f"@{twt_author} "
-        messages = split_text(text,handle_str)
+        if(text and not(text_split)):
+            messages = split_text(text,handle_str)
+        elif(text_split and not(text)):
+            check_split = check_split_text(text_split)
+            if(not(check_split)):
+                logger.error("TWEET text_split has an entity exceeding the TWEET_LENGTH")
+                print("Ensure that all the individual tweets don't exceed the TWEET_LENGTH")
+                return
+            else:
+                messages = text_split
+        elif(text and text_split):
+            logger.error("TWEET Both text and text_split specified")
+            print("Specify either one of text or text_split")
+            return
+        else:
+            logger.error("TWEET Both text and text_split aren't specified")
+            print("Specify either one of text or text_split")
+            return
         media_list = self.get_media_list("REPLY",messages,medias)
         if(media_list):
             k = 0
@@ -298,7 +332,7 @@ def to_query_str(query):
     return urllib.parse.quote(query)
 
 
-def split_text(text,handle_str=None,limit=280):
+def split_text(text,handle_str=None,limit=TWEET_LENGTH):
     if(handle_str):
         limit -= len(handle_str)
     split_text_list = []
@@ -315,6 +349,12 @@ def split_text(text,handle_str=None,limit=280):
     split_text_list.append(new_str)
     return split_text_list
 
+
+def check_split_text(text_split):
+    for message in text_split:
+        if(len(message)>TWEET_LENGTH):
+            return False
+    return True
 
 
 if __name__=="__main__":
